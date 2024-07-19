@@ -19,11 +19,7 @@ const userSchema = new Schema(
       type: String,
       default: "user",
     },
-    contact: {
-      type: String,
-      require: true,
-    },
   },
   { timestamps: true }
 );
-export const userModel = mongoose.model("User", userSchema);
+export const UserModel = mongoose.model("User", userSchema);
