@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import { UserModel } from "../models/UserModel.js";
 import jwt from "jsonwebtoken";
 import sendMail from "../middleware/sendMail.js";
+import { responseStatus } from "../utilis/statusFunction.js";
 
 export const registerUser = async (req, res) => {
   try {
@@ -10,10 +11,7 @@ export const registerUser = async (req, res) => {
     let user = await UserModel.findOne({ email });
 
     if (user) {
-      return res.status(400).json({
-        status: false,
-        message: "Email already exists",
-      });
+      await responseStatus(res, 400, false, "Email already exists");
     }
 
     const hashPassword = await bcrypt.hash(password, 10);
@@ -27,19 +25,13 @@ export const registerUser = async (req, res) => {
 
     const subject = "Verification code to register your account";
     const message = `Hi,\n\nPlease use the verification code below to complete your registration:\n\n${OTP}\n\nThank you.`;
+    const responseMsg = "OTP sent to your email";
 
     await sendMail(email, subject, message);
 
-    return res.status(200).json({
-      status: true,
-      message: "OTP sent to your email",
-      activateCode,
-    });
+    await responseStatus(res, 200, true, responseMsg, activateCode);
   } catch (err) {
-    res.status(500).json({
-      status: false,
-      message: "Internal server error",
-    });
+    await responseStatus(res, 400, false, "Internal server error");
   }
 };
 
@@ -51,17 +43,11 @@ export const verifyOTP = async (req, res) => {
     const { name, hashPassword, email } = verify?.user;
 
     if (!verify) {
-      return res.status(400).json({
-        status: false,
-        message: "OTP Expired",
-      });
+      await responseStatus(res, 400, false, "OTP Expired");
     }
 
     if (verify.OTP !== otp) {
-      return res.status(400).json({
-        status: false,
-        message: "Invalid OTP",
-      });
+      await responseStatus(res, 400, false, "Invalid OTP");
     }
 
     await UserModel.create({
@@ -70,15 +56,9 @@ export const verifyOTP = async (req, res) => {
       password: hashPassword,
     });
 
-    res.status(201).json({
-      status: true,
-      message: "User created successfully",
-    });
+    await responseStatus(res, 201, true, "User created successfully");
   } catch (err) {
-    res.status(500).json({
-      status: false,
-      message: err.message,
-    });
+    await responseStatus(res, 400, false, err.message);
   }
 };
 
@@ -87,17 +67,12 @@ export const loginUser = async (req, res) => {
     const { email, password } = req.body;
     const user = await UserModel.findOne({ email });
     if (!user) {
-      return res.status(400).json({
-        status: false,
-        message: "Invalid credentials",
-      });
+      await responseStatus(res, 400, false, "Invalid credentials");
     }
     const passwordStatus = await bcrypt.compare(password, user.password);
+
     if (!passwordStatus) {
-      return res.status(400).json({
-        status: false,
-        message: "Invalid credentials",
-      });
+      await responseStatus(res, 400, false, "Invalid credentials");
     }
 
     const loginToken = jwt.sign({ _id: user._id }, process.env.LOGINTOKEN, {
@@ -106,32 +81,20 @@ export const loginUser = async (req, res) => {
 
     const { password: userPassword, ...userDetail } = user.toObject();
 
-    return res.status(200).json({
-      status: true,
-      message: "Successfully login",
-      token: loginToken,
-      userDetail,
-    });
+    const data = { userDetail, loginToken };
+
+    await responseStatus(res, 200, true, "Successfully login", data);
   } catch (error) {
-    res.status(500).json({
-      status: false,
-      message: err.message,
-    });
+    await responseStatus(res, 400, false, err.message);
   }
 };
 
 export const getProfileDetail = async (req, res) => {
   try {
     const user = await UserModel.findById(req.user._id).select("-password");
-    return res.status(200).json({
-      status: true,
-      message: "user detail data is available",
-      user,
-    });
+    const message = "User detail data is available";
+    await responseStatus(res, 200, true, message, userDetail);
   } catch (error) {
-    return res.status(400).json({
-      message: error.message,
-      status: false,
-    });
+    await responseStatus(res, 400, false, error.message);
   }
 };
